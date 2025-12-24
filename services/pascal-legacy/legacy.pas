@@ -31,12 +31,15 @@ begin
   // write CSV
   AssignFile(f, fullpath);
   Rewrite(f);
-  Writeln(f, 'recorded_at,voltage,temp,source_file');
+  Writeln(f, 'recorded_at,is_active,value,description');
   Writeln(f, FormatDateTime('yyyy-mm-dd hh:nn:ss', Now) + ',' +
-             FormatFloat('0.00', RandFloat(3.2, 12.6)) + ',' +
-             FormatFloat('0.00', RandFloat(-50.0, 80.0)) + ',' +
-             fn);
+             'TRUE' + ',' +
+             FormatFloat('0.00', RandFloat(10.0, 100.0)) + ',' +
+             'Telemetry data generated at ' + FormatDateTime('hh:nn:ss', Now));
   CloseFile(f);
+
+  // Convert to XLSX
+  fpSystem('python3 /opt/legacy/csv_to_xlsx.py ' + fullpath + ' ' + ChangeFileExt(fullpath, '.xlsx'));
 
   // COPY into Postgres
   pghost := GetEnvDef('PGHOST', 'db');
@@ -48,7 +51,7 @@ begin
   // Use psql with COPY FROM PROGRAM for simplicity
   // Here we call psql reading from file
   copyCmd := 'psql "host=' + pghost + ' port=' + pgport + ' user=' + pguser + ' dbname=' + pgdb + '" ' +
-             '-c "\copy telemetry_legacy(recorded_at, voltage, temp, source_file) FROM ''' + fullpath + ''' WITH (FORMAT csv, HEADER true)"';
+             '-c "\copy telemetry_legacy(recorded_at, is_active, value, description) FROM ''' + fullpath + ''' WITH (FORMAT csv, HEADER true)"';
   // Mask password via env
   SetEnvironmentVariable('PGPASSWORD', pgpass);
   // Execute

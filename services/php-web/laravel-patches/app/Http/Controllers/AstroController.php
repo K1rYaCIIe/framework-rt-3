@@ -1,4 +1,5 @@
-﻿<?php
+<?php
+
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -11,51 +12,42 @@ class AstroController extends Controller
         $lon  = (float) $r->query('lon', 37.6176);
         $days = max(1, min(30, (int) $r->query('days', 7)));
 
-        $fakeEvents = [
-            [
-                'name' => 'Солнце',
-                'type' => 'Восход',
-                'when' => now()->addHours(6)->toISOString(),
-                'extra' => 'Азимут: 90°'
-            ],
-            [
-                'name' => 'Луна',
-                'type' => 'Полнолуние',
-                'when' => now()->addDays(3)->toISOString(),
-                'extra' => 'Фаза: 100%'
-            ],
-            [
-                'name' => 'Марс',
-                'type' => 'Противостояние',
-                'when' => now()->addDays(10)->toISOString(),
-                'extra' => 'Видимость: отличная'
-            ],
-            [
-                'name' => 'МКС',
-                'type' => 'Пролет',
-                'when' => now()->addMinutes(90)->toISOString(),
-                'extra' => 'Яркость: -1.5m'
-            ],
-            [
-                'name' => 'Венера',
-                'type' => 'Вечерняя звезда',
-                'when' => now()->addHours(2)->toISOString(),
-                'extra' => 'Высота: 25°'
-            ]
-        ];
+        $from = now('UTC')->toDateString();
+        $to   = now('UTC')->addDays($days)->toDateString();
 
-        return response()->json([
-            'ok' => true,
-            'data' => [
-                'events' => $fakeEvents,
-                'location' => [
-                    'lat' => $lat,
-                    'lon' => $lon,
-                    'days' => $days
-                ],
-                'timestamp' => now()->toISOString(),
-                'note' => 'Это тестовые данные. Реальные данные Astronomy API временно недоступны.'
-            ]
-        ], 200, [], JSON_UNESCAPED_UNICODE);
+        $appId  = env('ASTRO_APP_ID', '');
+        $secret = env('ASTRO_APP_SECRET', '');
+        if ($appId === '' || $secret === '') {
+            return response()->json(['error' => 'Missing ASTRO_APP_ID/ASTRO_APP_SECRET'], 500);
+        }
+
+        $auth = base64_encode($appId . ':' . $secret);
+        $url  = 'https://api.astronomyapi.com/api/v2/bodies/events?' . http_build_query([
+            'latitude'  => $lat,
+            'longitude' => $lon,
+            'from'      => $from,
+            'to'        => $to,
+        ]);
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER     => [
+                'Authorization: Basic ' . $auth,
+                'Content-Type: application/json',
+                'User-Agent: monolith-iss/1.0'
+            ],
+            CURLOPT_TIMEOUT        => 25,
+        ]);
+        $raw  = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE) ?: 0;
+        $err  = curl_error($ch);
+        curl_close($ch);
+
+        if ($raw === false || $code >= 400) {
+            return response()->json(['error' => $err ?: ("HTTP " . $code), 'code' => $code, 'raw' => $raw], 403);
+        }
+        $json = json_decode($raw, true);
+        return response()->json($json ?? ['raw' => $raw]);
     }
 }

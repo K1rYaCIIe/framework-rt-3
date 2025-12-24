@@ -17,6 +17,14 @@ class ProxyController extends Controller
         return $this->pipe('/iss/trend' . ($q ? '?' . $q : ''));
     }
 
+    public function osdrList() {
+        return $this->pipe('/osdr/list');
+    }
+
+    public function spaceSummary() {
+        return $this->pipe('/space/summary');
+    }
+
     private function pipe(string $path)
     {
         $url = $this->base() . $path;

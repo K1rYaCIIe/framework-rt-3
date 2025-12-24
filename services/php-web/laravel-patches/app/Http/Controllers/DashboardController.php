@@ -17,25 +17,17 @@ class DashboardController extends Controller
 
     public function index()
     {
-        // минимум: карта МКС и пустые контейнеры, JWST-галерея подтянется через /api/jwst/feed
-        $b     = $this->base();
-        $iss   = $this->getJson($b.'/last');
-        $trend = []; // фронт сам заберёт /api/iss/trend (через nginx прокси)
+        return view('dashboard');
+    }
 
-        return view('dashboard', [
-            'iss' => $iss,
-            'trend' => $trend,
-            'jw_gallery' => [], // не нужно сервером
-            'jw_observation_raw' => [],
-            'jw_observation_summary' => [],
-            'jw_observation_images' => [],
-            'jw_observation_files' => [],
-            'metrics' => [
-                'iss_speed' => $iss['payload']['velocity'] ?? null,
-                'iss_alt'   => $iss['payload']['altitude'] ?? null,
-                'neo_total' => 0,
-            ],
-        ]);
+    public function telemetry()
+    {
+        $telemetry = \DB::table('telemetry_legacy')
+            ->orderBy('recorded_at', 'desc')
+            ->limit(100)
+            ->get();
+
+        return view('telemetry', ['telemetry' => $telemetry]);
     }
 
     /**
